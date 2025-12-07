@@ -1,0 +1,94 @@
+name: Build Example App
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'packages/flutter/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'packages/flutter/**'
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: cd packages/flutter/example && flutter pub get
+
+      - name: Build APK
+        run: cd packages/flutter/example && flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apk
+          path: packages/flutter/example/build/app/outputs/apk/release/app-release.apk
+
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: cd packages/flutter/example && flutter pub get
+
+      - name: Build iOS
+        run: cd packages/flutter/example && flutter build ios --release --no-codesign
+
+      - name: Upload iOS build
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-app
+          path: packages/flutter/example/build/ios/iphoneos/Runner.app
+
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: cd packages/flutter/example && flutter pub get
+
+      - name: Build web
+        run: cd packages/flutter/example && flutter build web --release
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-build
+          path: packages/flutter/example/build/web

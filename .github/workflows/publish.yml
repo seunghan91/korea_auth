@@ -1,0 +1,53 @@
+name: Publish to pub.dev
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for publishing'
+        required: true
+        default: 'Bug fix or minor update'
+
+jobs:
+  publish:
+    name: Publish Package
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Get dependencies
+        run: cd packages/flutter && dart pub get
+
+      - name: Run tests
+        run: cd packages/flutter && flutter test
+
+      - name: Check format
+        run: cd packages/flutter && dart format --set-exit-if-changed . || true
+
+      - name: Analyze
+        run: cd packages/flutter && dart analyze
+
+      - name: Publish to pub.dev
+        run: cd packages/flutter && dart pub publish -f
+        env:
+          PUB_DEV_PUBLISH_ACCESS_TOKEN: ${{ secrets.PUB_DEV_PUBLISH_ACCESS_TOKEN }}
+          PUB_DEV_PUBLISH_REFRESH_TOKEN: ${{ secrets.PUB_DEV_PUBLISH_REFRESH_TOKEN }}
+          PUB_DEV_PUBLISH_TOKEN_ENDPOINT: https://accounts.google.com/o/oauth2/token
+          PUB_DEV_PUBLISH_EXPIRATION: 3600
+
+      - name: Create success comment
+        if: success()
+        run: echo "✅ Package published successfully to pub.dev!"
+
+      - name: Create failure comment
+        if: failure()
+        run: echo "❌ Publishing failed. Check the logs above."

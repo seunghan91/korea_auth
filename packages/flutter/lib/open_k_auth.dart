@@ -1,6 +1,15 @@
-/// Open K-Auth: 한국 소셜 로그인 통합 SDK
+/// # Open K-Auth
 ///
-/// 카카오, 네이버, 구글, 애플 로그인을 통합 API로 제공합니다.
+/// Flutter 카카오 로그인, 네이버 로그인, 구글 로그인, 애플 로그인 통합 SDK.
+///
+/// 한국 앱 개발자를 위한 소셜 로그인 통합 패키지입니다.
+/// 카카오톡 로그인, 네이버 아이디 로그인, Google Sign-In, Apple Sign-In을
+/// 하나의 통합된 API로 간편하게 구현할 수 있습니다.
+///
+/// ## 지원 상태 관리
+///
+/// Riverpod, Provider, BLoC, Cubit, GetX, MobX, Redux, Signals, Vanilla 등
+/// 9가지 상태 관리 솔루션을 지원합니다.
 ///
 /// ## 주요 기능
 /// - **통합 API**: `signIn(provider)` 하나로 4개 소셜 로그인 처리

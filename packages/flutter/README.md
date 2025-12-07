@@ -1,10 +1,29 @@
 # Open K-Auth
 
-**한국 앱 개발자를 위한 통합 소셜 로그인 Flutter SDK**
+**Flutter 카카오 로그인, 네이버 로그인, 구글 로그인, 애플 로그인 통합 SDK**
 
-카카오, 네이버, 구글, 애플 - 4대 소셜 로그인을 하나의 통합된 API로 간편하게 구현하세요.
+[![pub package](https://img.shields.io/pub/v/open_k_auth.svg)](https://pub.dev/packages/open_k_auth)
+[![likes](https://img.shields.io/pub/likes/open_k_auth)](https://pub.dev/packages/open_k_auth/score)
+[![popularity](https://img.shields.io/pub/popularity/open_k_auth)](https://pub.dev/packages/open_k_auth/score)
 
-[Features](#features) • [설치](#설치) • [빠른 시작](#빠른-시작) • [Provider 설정](#provider-설정) • [플랫폼 설정](#플랫폼-설정) • [고급 사용법](#고급-사용법) • [트러블슈팅](#트러블슈팅)
+한국 앱 개발자를 위한 **소셜 로그인 통합 패키지**. 카카오톡 로그인, 네이버 아이디 로그인, Google Sign-In, Apple Sign-In을 **하나의 통합 API**로 간편하게 구현하세요.
+
+## 왜 Open K-Auth인가?
+
+- ✅ **4대 소셜 로그인 통합** - 카카오, 네이버, 구글, 애플을 단일 API로
+- ✅ **보일러플레이트 제거** - 각 SDK 개별 설정 없이 바로 사용
+- ✅ **9가지 상태 관리 지원** - Riverpod, Provider, BLoC, Cubit, GetX, MobX, Redux, Signals, Vanilla
+- ✅ **타입 안전** - Dart의 sealed class로 안전한 에러 처리
+- ✅ **서버 검증 지원** - 백엔드 토큰 검증용 데이터 자동 추출
+- ✅ **테스트 친화적** - MockAuthProvider로 쉬운 단위 테스트
+
+## 키워드
+
+`flutter 카카오 로그인` `flutter 네이버 로그인` `flutter 소셜 로그인` `flutter social login` `kakao login flutter` `naver login flutter` `flutter 구글 로그인` `flutter 애플 로그인` `flutter authentication` `flutter auth` `korean social login` `한국 소셜 로그인`
+
+---
+
+[Features](#features) • [설치](#설치) • [빠른 시작](#빠른-시작) • [상태 관리](#상태-관리-선택-가이드) • [Provider 설정](#provider-설정) • [플랫폼 설정](#플랫폼-설정) • [고급 사용법](#고급-사용법) • [트러블슈팅](#트러블슈팅)
 
 ## Features
 
@@ -982,6 +1001,162 @@ print(result.prettyPrint());
 | `not_available` | 해당 플랫폼에서 사용 불가 |
 | `not_supported` | 지원하지 않는 기능 |
 
+## 자주 묻는 질문 (FAQ)
+
+### Q: 카카오톡 앱이 설치되어 있지 않으면 어떻게 되나요?
+
+자동으로 카카오 계정 웹 로그인으로 전환됩니다. 별도 처리가 필요 없습니다.
+
+```dart
+// KakaoAuthProvider는 자동으로 처리합니다
+final user = await authRepo.signIn(KakaoAuthProvider());
+// 카카오톡 앱 있음 → 앱으로 로그인
+// 카카오톡 앱 없음 → 웹 로그인
+```
+
+### Q: 로그인 후 서버에서 토큰을 검증하려면?
+
+`getServerVerificationData()`로 검증에 필요한 데이터를 추출하세요.
+
+```dart
+final user = await authRepo.signIn(KakaoAuthProvider());
+final verificationData = authRepo.getServerVerificationData();
+
+// 서버로 전송
+await api.post('/auth/verify', body: {
+  'provider': verificationData.provider,      // 'kakao'
+  'accessToken': verificationData.accessToken,
+  'idToken': verificationData.idToken,        // 있는 경우
+});
+```
+
+### Q: 자동 로그인을 구현하려면?
+
+`checkExistingSession()`으로 기존 세션을 확인하세요.
+
+```dart
+@override
+void initState() {
+  super.initState();
+  _checkAutoLogin();
+}
+
+Future<void> _checkAutoLogin() async {
+  // 마지막 로그인 Provider 저장/불러오기
+  final lastProvider = prefs.getString('last_provider');
+  if (lastProvider == 'kakao') {
+    final restored = await authRepo.checkExistingSession(KakaoAuthProvider());
+    if (restored) {
+      // 자동 로그인 성공, 홈 화면으로 이동
+    }
+  }
+}
+```
+
+### Q: 여러 Provider로 동시에 로그인할 수 있나요?
+
+아니요, 한 번에 하나의 Provider만 활성화됩니다. 다른 Provider로 로그인하면 기존 세션은 자동으로 종료됩니다.
+
+### Q: 토큰이 만료되면 어떻게 되나요?
+
+`TokenManager`가 자동으로 갱신을 시도합니다. 갱신 실패 시 이벤트를 받을 수 있습니다.
+
+```dart
+authRepo.tokenEvents.listen((event) {
+  if (event.type == TokenEventType.refreshFailed) {
+    // 재로그인 필요
+    Navigator.pushReplacement(context, MaterialPageRoute(
+      builder: (_) => LoginScreen(),
+    ));
+  }
+});
+```
+
+### Q: 테스트에서 실제 로그인 없이 테스트하려면?
+
+`MockAuthProvider`를 사용하세요.
+
+```dart
+import 'package:open_k_auth/testing.dart';
+
+test('로그인 후 홈 화면 표시', () async {
+  final mockProvider = MockAuthProvider.withTestUser(
+    uid: 'test-123',
+    displayName: '테스트 유저',
+    email: 'test@example.com',
+  );
+  
+  await authRepo.signIn(mockProvider);
+  
+  expect(authRepo.currentState.isAuthenticated, true);
+  expect(authRepo.currentUser?.displayName, '테스트 유저');
+});
+
+test('로그인 실패 처리', () async {
+  final mockProvider = MockAuthProvider.failing(
+    errorCode: 'network_error',
+    errorMessage: '네트워크 연결 실패',
+  );
+  
+  expect(
+    () => authRepo.signIn(mockProvider),
+    throwsA(isA<AuthException>()),
+  );
+});
+```
+
+### Q: Provider별로 받을 수 있는 사용자 정보가 다른가요?
+
+네, Provider마다 제공하는 정보가 다릅니다.
+
+| 필드 | 카카오 | 네이버 | 구글 | 애플 |
+|------|--------|--------|------|------|
+| `uid` | ✅ | ✅ | ✅ | ✅ |
+| `email` | ⚠️ 동의 필요 | ⚠️ 동의 필요 | ✅ | ⚠️ 최초만 |
+| `displayName` | ⚠️ 동의 필요 | ⚠️ 동의 필요 | ✅ | ⚠️ 최초만 |
+| `photoURL` | ⚠️ 동의 필요 | ⚠️ 동의 필요 | ✅ | ❌ |
+
+Provider별 원본 데이터는 `user.rawData`에서 확인할 수 있습니다.
+
+```dart
+final user = await authRepo.signIn(KakaoAuthProvider());
+print(user.rawData); // {'accessToken': '...', 'refreshToken': '...', ...}
+```
+
+## 마이그레이션 가이드
+
+### 기존 kakao_flutter_sdk에서 마이그레이션
+
+```dart
+// Before (kakao_flutter_sdk)
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+
+final user = await UserApi.instance.loginWithKakaoTalk();
+print(user.kakaoAccount?.email);
+
+// After (open_k_auth)
+import 'package:open_k_auth/open_k_auth.dart';
+
+final user = await authRepo.signIn(KakaoAuthProvider());
+print(user.email);
+```
+
+### 기존 flutter_naver_login에서 마이그레이션
+
+```dart
+// Before (flutter_naver_login)
+import 'package:flutter_naver_login/flutter_naver_login.dart';
+
+final result = await FlutterNaverLogin.logIn();
+print(result.account.email);
+
+// After (open_k_auth)
+import 'package:open_k_auth/open_k_auth.dart';
+
+final user = await authRepo.signIn(NaverAuthProvider());
+print(user.email);
+```
+
 ## 공식 문서 참고
 
 각 Provider의 상세 설정은 공식 문서를 참고하세요:
@@ -991,10 +1166,27 @@ print(result.prettyPrint());
 - [google_sign_in](https://pub.dev/packages/google_sign_in)
 - [sign_in_with_apple](https://pub.dev/packages/sign_in_with_apple)
 
+## 관련 패키지
+
+- [kakao_flutter_sdk](https://pub.dev/packages/kakao_flutter_sdk) - 카카오 공식 SDK
+- [flutter_naver_login](https://pub.dev/packages/flutter_naver_login) - 네이버 로그인
+- [google_sign_in](https://pub.dev/packages/google_sign_in) - 구글 로그인
+- [sign_in_with_apple](https://pub.dev/packages/sign_in_with_apple) - 애플 로그인
+
 ## Contributing
 
 이슈와 PR을 환영합니다!
 
+- 🐛 버그 리포트: [GitHub Issues](https://github.com/seunghan91/korea_auth/issues)
+- 💡 기능 제안: [GitHub Discussions](https://github.com/seunghan91/korea_auth/discussions)
+- 📖 문서 개선: PR 환영
+
 ## License
 
 MIT License
+
+---
+
+**Made with ❤️ for Korean Flutter Developers**
+
+`flutter 카카오 로그인` `flutter 네이버 로그인` `flutter 소셜 로그인` `kakao login` `naver login` `social auth`

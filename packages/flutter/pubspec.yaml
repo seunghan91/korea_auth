@@ -1,15 +1,17 @@
 name: open_k_auth
-description: "한국 앱 개발자를 위한 통합 소셜 로그인 SDK. 카카오, 네이버, 구글, 애플을 하나의 API로 간편하게 구현."
+description: "Flutter 카카오 로그인, 네이버 로그인, 구글 로그인, 애플 로그인 통합 SDK. 한국 소셜 로그인을 하나의 API로 간편하게 구현. Riverpod, Provider, BLoC, GetX 등 9가지 상태 관리 지원."
 version: 0.1.0
 homepage: https://github.com/seunghan91/korea_auth
 repository: https://github.com/seunghan91/korea_auth
 issue_tracker: https://github.com/seunghan91/korea_auth/issues
+documentation: https://github.com/seunghan91/korea_auth#readme
 
 topics:
   - authentication
   - social-login
   - kakao
   - naver
+  - korean
 
 environment:
   sdk: ^3.10.0
@@ -36,6 +38,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  uses-material-design: true
 
   # To add assets to your package, add an assets section, like this:
   # assets:
