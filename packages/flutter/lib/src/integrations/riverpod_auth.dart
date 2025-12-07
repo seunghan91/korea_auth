@@ -1,3 +1,40 @@
+/// Riverpod 상태 관리 통합
+///
+/// 이 파일은 Riverpod을 사용하는 프로젝트를 위한 통합 코드입니다.
+/// 다른 상태 관리를 사용하는 경우 이 파일을 import하지 않아도 됩니다.
+///
+/// ## 다른 상태 관리 사용 시
+///
+/// - **Provider**: `lib/src/integrations/provider_example.dart` 참고
+/// - **BLoC**: `lib/src/integrations/bloc_example.dart` 참고
+/// - **GetX**: `lib/src/integrations/getx_example.dart` 참고
+/// - **Vanilla**: `lib/src/integrations/vanilla_example.dart` 참고
+///
+/// ## 핵심 개념
+///
+/// open_k_auth의 핵심은 [AuthRepository]입니다.
+/// 모든 상태 관리 솔루션은 [AuthRepository]를 래핑하여 사용합니다:
+///
+/// ```dart
+/// // AuthRepository는 상태 관리에 독립적입니다
+/// final authRepo = AuthRepository();
+///
+/// // 인증 상태 스트림 구독
+/// authRepo.authStateChanges.listen((state) {
+///   // 상태 변화 처리
+/// });
+///
+/// // 로그인
+/// await authRepo.signIn(KakaoAuthProvider());
+///
+/// // 로그아웃
+/// await authRepo.signOut();
+/// ```
+///
+/// Riverpod을 사용하지 않는 경우, [AuthRepository]를 직접 사용하거나
+/// 프로젝트의 상태 관리 솔루션으로 래핑하세요.
+library riverpod_auth;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/auth_repository.dart';
 import '../core/auth_state.dart';
