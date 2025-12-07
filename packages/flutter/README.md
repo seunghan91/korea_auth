@@ -260,13 +260,17 @@ keytool -exportcert -alias {YOUR_ALIAS} -keystore {YOUR_KEYSTORE_PATH} | openssl
 
 open_k_auth는 특정 상태 관리에 종속되지 않습니다. 프로젝트에 맞는 방식을 선택하세요.
 
-| 상태 관리 | 추천 상황 | 추가 패키지 |
-|-----------|----------|-------------|
-| **Riverpod** | 새 프로젝트, 타입 안전성 중시 | `flutter_riverpod` (기본 포함) |
-| **Provider** | 기존 Provider 프로젝트 | `provider` |
-| **BLoC** | 대규모 앱, 이벤트 기반 | `flutter_bloc` |
-| **GetX** | 빠른 개발, 간단한 문법 | `get` |
-| **Vanilla** | 간단한 앱, 학습용 | 없음 |
+| 상태 관리 | 추천 상황 | 추가 패키지 | 난이도 |
+|-----------|----------|-------------|--------|
+| **Riverpod** | 새 프로젝트, 타입 안전성 중시 | `flutter_riverpod` (기본 포함) | ⭐⭐ |
+| **Provider** | 기존 Provider 프로젝트 | `provider` | ⭐ |
+| **Cubit** | 간단한 상태, BLoC 생태계 | `flutter_bloc` | ⭐⭐ |
+| **BLoC** | 이벤트 로깅, 복잡한 이벤트 처리 | `flutter_bloc` | ⭐⭐⭐ |
+| **GetX** | 빠른 개발, 올인원 솔루션 | `get` | ⭐ |
+| **MobX** | 반응형 프로그래밍, 중간 규모 | `mobx`, `flutter_mobx` | ⭐⭐ |
+| **Redux** | 대규모 엔터프라이즈, 예측 가능성 | `flutter_redux` | ⭐⭐⭐ |
+| **Signals** | 세밀한 반응성, 최신 트렌드 | `signals` | ⭐⭐ |
+| **Vanilla** | 간단한 앱, 학습용 | 없음 | ⭐ |
 
 ### Riverpod (기본 제공)
 
@@ -332,24 +336,43 @@ final auth = context.watch<AuthNotifier>();
 if (auth.isAuthenticated) return HomeScreen();
 ```
 
-### BLoC
+### BLoC / Cubit
+
+> 💡 인증 로직은 대부분 **Cubit**으로 충분합니다. BLoC은 이벤트 로깅이 필요할 때 사용하세요.
 
 ```dart
-// 1. AuthCubit 정의
+// 1. AuthCubit 정의 (권장)
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _authRepo;
+  StreamSubscription? _authSub;
 
   AuthCubit(this._authRepo) : super(const AuthState.initial()) {
-    _authRepo.authStateChanges.listen(emit);
+    _authSub = _authRepo.authStateChanges.listen(emit);
   }
 
   Future<void> signIn(AuthProvider provider) async {
     emit(const AuthState.loading());
     try {
-      await _authRepo.signIn(provider);
+      final user = await _authRepo.signIn(provider);
+      emit(AuthState.authenticated(user));
     } on AuthException catch (e) {
       emit(AuthState.error(e));
     }
+  }
+
+  Future<void> signOut() async {
+    await _authRepo.signOut();
+    emit(const AuthState.unauthenticated());
+  }
+
+  // Provider별 편의 메서드
+  Future<void> signInWithKakao() => signIn(KakaoAuthProvider());
+  Future<void> signInWithNaver() => signIn(NaverAuthProvider());
+
+  @override
+  Future<void> close() {
+    _authSub?.cancel();
+    return super.close();
   }
 }
 
@@ -363,13 +386,26 @@ void main() {
   );
 }
 
-// 3. 위젯에서 사용
-BlocBuilder<AuthCubit, AuthState>(
+// 3. 위젯에서 사용 (BlocConsumer로 에러 처리 포함)
+BlocConsumer<AuthCubit, AuthState>(
+  listener: (context, state) {
+    if (state.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류: ${state.error}')),
+      );
+    }
+  },
   builder: (context, state) {
     if (state.isAuthenticated) return HomeScreen();
     return LoginScreen();
   },
 );
+
+// 4. 로그인 버튼
+AuthButton.kakao(
+  onPressed: () => context.read<AuthCubit>().signInWithKakao(),
+  isLoading: state.isLoading,
+)
 ```
 
 ### GetX
@@ -417,46 +453,107 @@ Obx(() {
 });
 ```
 
+### MobX
+
+```dart
+// 1. AuthStore 정의 (코드 생성 필요: flutter pub run build_runner build)
+class AuthStore = _AuthStore with _$AuthStore;
+
+abstract class _AuthStore with Store {
+  final AuthRepository _authRepo;
+  _AuthStore(this._authRepo);
+
+  @observable
+  AuthState authState = const AuthState.initial();
+
+  @computed
+  bool get isAuthenticated => authState.isAuthenticated;
+
+  @action
+  Future<void> signInWithKakao() async {
+    authState = const AuthState.loading();
+    try {
+      final user = await _authRepo.signIn(KakaoAuthProvider());
+      authState = AuthState.authenticated(user);
+    } catch (e) { authState = AuthState.error(e); }
+  }
+}
+
+// 2. 위젯에서 사용
+Observer(builder: (_) => AuthButton.kakao(
+  onPressed: store.signInWithKakao,
+  isLoading: store.authState.isLoading,
+))
+```
+
+### Redux
+
+```dart
+// 1. Actions & Reducer
+class SignInWithKakaoAction {}
+class SetAuthStateAction { final AuthState state; SetAuthStateAction(this.state); }
+
+AuthState authReducer(AuthState state, action) {
+  if (action is SetAuthStateAction) return action.state;
+  return state;
+}
+
+// 2. Middleware (비동기 로직)
+Middleware<AppState> authMiddleware(AuthRepository repo) {
+  return (store, action, next) async {
+    next(action);
+    if (action is SignInWithKakaoAction) {
+      store.dispatch(SetAuthStateAction(const AuthState.loading()));
+      final user = await repo.signIn(KakaoAuthProvider());
+      store.dispatch(SetAuthStateAction(AuthState.authenticated(user)));
+    }
+  };
+}
+
+// 3. 위젯에서 사용
+StoreConnector<AppState, AuthState>(
+  converter: (store) => store.state.authState,
+  builder: (context, state) => AuthButton.kakao(
+    onPressed: () => StoreProvider.of<AppState>(context).dispatch(SignInWithKakaoAction()),
+  ),
+)
+```
+
+### Signals
+
+```dart
+// 1. Signals 정의
+final authState = signal<AuthState>(const AuthState.initial());
+final isAuthenticated = computed(() => authState.value.isAuthenticated);
+
+Future<void> signInWithKakao(AuthRepository repo) async {
+  authState.value = const AuthState.loading();
+  final user = await repo.signIn(KakaoAuthProvider());
+  authState.value = AuthState.authenticated(user);
+}
+
+// 2. 위젯에서 사용 (watch로 구독)
+Widget build(BuildContext context) {
+  final loading = authState.watch(context).isLoading;
+  return AuthButton.kakao(
+    onPressed: () => signInWithKakao(authRepo),
+    isLoading: loading,
+  );
+}
+```
+
 ### Vanilla (상태 관리 없음)
 
 ```dart
 // StatefulWidget + StreamBuilder
-class AuthGate extends StatelessWidget {
-  final _authRepo = AuthRepository();
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: _authRepo.authStateChanges,
-      builder: (context, snapshot) {
-        final state = snapshot.data;
-        if (state?.isAuthenticated ?? false) {
-          return HomeScreen(user: state!.user!);
-        }
-        return LoginScreen(authRepo: _authRepo);
-      },
-    );
-  }
-}
-
-// 로그인 화면
-class LoginScreen extends StatefulWidget {
-  final AuthRepository authRepo;
-  // ...
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  bool _isLoading = false;
-
-  Future<void> _signIn(AuthProvider provider) async {
-    setState(() => _isLoading = true);
-    try {
-      await widget.authRepo.signIn(provider);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-}
+StreamBuilder<AuthState>(
+  stream: authRepo.authStateChanges,
+  builder: (context, snapshot) {
+    final state = snapshot.data;
+    if (state?.isAuthenticated ?? false) return HomeScreen(user: state!.user!);
+    return LoginScreen();
+  },
+)
 ```
 
 > 💡 **Tip**: 각 상태 관리별 상세 예시는 `lib/src/integrations/` 폴더의 예시 파일을 참고하세요.

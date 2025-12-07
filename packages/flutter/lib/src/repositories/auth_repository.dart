@@ -7,7 +7,81 @@ import '../core/auth_token.dart';
 import '../core/token_manager.dart';
 import '../core/server_verification.dart';
 
-/// Repository to manage authentication state and interactions with providers.
+/// 인증 상태와 Provider 상호작용을 관리하는 핵심 Repository
+///
+/// [AuthRepository]는 상태 관리 솔루션에 독립적입니다.
+/// Riverpod, Provider, BLoC, GetX 등 어떤 상태 관리와도 함께 사용할 수 있습니다.
+///
+/// ## 상태 관리별 사용 방법
+///
+/// ### Riverpod (기본 제공)
+/// ```dart
+/// // riverpod_auth.dart의 Provider 사용
+/// final user = await ref.read(authNotifierProvider.notifier).signIn(provider);
+/// ```
+///
+/// ### Provider
+/// ```dart
+/// class AuthNotifier extends ChangeNotifier {
+///   final AuthRepository _repo;
+///   AuthNotifier(this._repo) {
+///     _repo.authStateChanges.listen((_) => notifyListeners());
+///   }
+/// }
+/// ```
+///
+/// ### Cubit (권장)
+/// ```dart
+/// class AuthCubit extends Cubit<AuthState> {
+///   final AuthRepository _repo;
+///   StreamSubscription? _sub;
+///   AuthCubit(this._repo) : super(const AuthState.initial()) {
+///     _sub = _repo.authStateChanges.listen(emit);
+///   }
+///   Future<void> signInWithKakao() async {
+///     emit(const AuthState.loading());
+///     try {
+///       final user = await _repo.signIn(KakaoAuthProvider());
+///       emit(AuthState.authenticated(user));
+///     } catch (e) { emit(AuthState.error(e)); }
+///   }
+///   @override
+///   Future<void> close() { _sub?.cancel(); return super.close(); }
+/// }
+/// ```
+///
+/// ### BLoC (이벤트 기반)
+/// ```dart
+/// class AuthBloc extends Bloc<AuthEvent, AuthState> {
+///   final AuthRepository _repo;
+///   AuthBloc(this._repo) : super(const AuthState.initial()) {
+///     on<SignInRequested>((event, emit) async {
+///       emit(const AuthState.loading());
+///       final user = await _repo.signIn(event.provider);
+///       emit(AuthState.authenticated(user));
+///     });
+///   }
+/// }
+/// ```
+///
+/// ### GetX
+/// ```dart
+/// class AuthController extends GetxController {
+///   final AuthRepository _repo;
+///   final Rx<AuthState> state = const AuthState.initial().obs;
+///   AuthController(this._repo) {
+///     _repo.authStateChanges.listen((s) => state.value = s);
+///   }
+/// }
+/// ```
+///
+/// ### Vanilla (상태 관리 없음)
+/// ```dart
+/// StreamBuilder<AuthState>(
+///   stream: authRepo.authStateChanges,
+///   builder: (context, snapshot) => ...,
+/// )
+/// ```
 class AuthRepository {
   AuthProvider? _currentProvider;
   AuthUser? _currentUser;

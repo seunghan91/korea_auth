@@ -5,10 +5,15 @@
 ///
 /// ## 다른 상태 관리 사용 시
 ///
-/// - **Provider**: `lib/src/integrations/provider_example.dart` 참고
-/// - **BLoC**: `lib/src/integrations/bloc_example.dart` 참고
-/// - **GetX**: `lib/src/integrations/getx_example.dart` 참고
-/// - **Vanilla**: `lib/src/integrations/vanilla_example.dart` 참고
+/// - **Provider**: `provider_example.dart` 참고
+/// - **Cubit/BLoC**: `bloc_example.dart` 참고 (Cubit 권장)
+/// - **GetX**: `getx_example.dart` 참고
+/// - **MobX**: `mobx_example.dart` 참고
+/// - **Redux**: `redux_example.dart` 참고
+/// - **Signals**: `signals_example.dart` 참고
+/// - **Vanilla**: `vanilla_example.dart` 참고
+///
+/// 모든 예시 파일은 `lib/src/integrations/` 폴더에 있습니다.
 ///
 /// ## 핵심 개념
 ///
